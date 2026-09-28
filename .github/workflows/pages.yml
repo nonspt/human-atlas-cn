@@ -1,0 +1,43 @@
+name: 发布人体解剖图谱
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出发布目录
+        uses: actions/checkout@v4
+      - name: 获取原始解剖模型
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/human-atlas-source.zip" \
+            https://codeload.github.com/slorksmo/Human-Atlas/zip/5bb5713aab18d7fe9380c3339eb09f173491ea06
+          unzip -q "$RUNNER_TEMP/human-atlas-source.zip" \
+            'Human-Atlas-5bb5713aab18d7fe9380c3339eb09f173491ea06/public/models/*' \
+            -d "$RUNNER_TEMP"
+          cp -a "$RUNNER_TEMP/Human-Atlas-5bb5713aab18d7fe9380c3339eb09f173491ea06/public/models" ./models
+          test -f models/atlas.json && test -f models/atlas-female.json
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: 上传静态站点
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+      - name: 发布
+        id: deployment
+        uses: actions/deploy-pages@v4
